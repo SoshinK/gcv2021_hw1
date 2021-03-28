@@ -28,9 +28,9 @@ def get_view(
     #  using known intrinsic and extrinsic camera parameters.
     #  Hints: use the class `RaycastingImaging` to transform image to  points in camera frame,
     #  use the class `CameraPose` to transform image to points in world frame.
-    pose_i = ...
-    imaging_i = ...
-    points_i = ...
+    pose_i = CameraPose(extrinsics[i])
+    imaging_i = RaycastingImaging(intrinsics_dict[i]['resolution_image'], intrinsics_dict[i]['resolution_3d'])
+    points_i = pose_i.camera_to_world(imaging_i.image_to_points(image_i))
 
     return image_i, distances_i, points_i, pose_i, imaging_i
 
@@ -73,7 +73,7 @@ def pairwise_interpolate_predictions(
     # (u, v) coordinates for reprojected points (in image plane of view_i).
     # TODO: your code here: use functions from CameraPose class
     #  to transform `points_j` into coordinate frame of `view_i`
-    reprojected_j = ...
+    reprojected_j = pose_i.world_to_camera(points_j)
 
     # For each reprojected point, find K nearest points in view_i,
     # that are source points/pixels to interpolate from.
@@ -82,7 +82,7 @@ def pairwise_interpolate_predictions(
     # TODO: your code here: use cKDTree to find k=`nn_set_size` indexes of
     #  nearest points for each of points from `reprojected_j`
     uv_i = imaging_i.rays_origins[:, :2]
-    _, nn_indexes_in_i = ...
+    _, nn_indexes_in_i = cKDTree(uv_i).query(reprojected_j[:, :2], k=nn_set_size)
 
     # Create interpolation mask: True for points which
     # can be stably interpolated (i.e. they have K neighbours present
@@ -97,13 +97,16 @@ def pairwise_interpolate_predictions(
         # UV values from pixel grid and Z value from depth image.
         # TODO: your code here: use `point_nn_indexes` found previously
         #  and distance values from `image_i` indexed by the same `point_nn_indexes`
-        point_from_j_nns = ...
-
+        point_from_j_nns = np.hstack((uv_i[point_nn_indexes], image_i.reshape((-1, 1))[point_nn_indexes]))#?
+        # print("\n!!!", point_from_j_nns.shape, uv_i[point_nn_indexes])
+        # print("keka ", image_i.reshape((-1))[point_nn_indexes])
+        # print("lol ", np.hstack((uv_i[point_nn_indexes], image_i.reshape((-1, 1))[point_nn_indexes])))
+        # exit()
         # TODO: compute a flag indicating the possibility to interpolate
         #  by checking distance between `point_from_j` and its `point_from_j_nns`
         #  against the value of `distance_interpolation_threshold`
-        distances_to_nearest = ...
-        interp_mask[idx] = ...
+        distances_to_nearest = np.linalg.norm(point_from_j_nns - point_from_j, axis=1)
+        interp_mask[idx] = np.amin(distances_to_nearest) < distance_interpolation_threshold #?
 
         if interp_mask[idx]:
             # Actually perform interpolation
@@ -112,8 +115,8 @@ def pairwise_interpolate_predictions(
                 #  to construct a bilinear interpolator from distances predicted
                 #  in `view_i` (i.e. `distances_i`) into the point in `view_j`.
                 #  Use the interpolator to compute an interpolated distance value.
-                interpolator = ...
-                distances_j_interp[idx] = ...
+                interpolator = interpolate.interp2d(point_from_j_nns[:, 0], point_from_j_nns[:, 1], distances_i.reshape((-1))[point_nn_indexes])
+                distances_j_interp[idx] = interpolator(*point_from_j[:2])
 
             except ValueError as e:
                 print('Error while interpolating point {idx}:'
@@ -159,7 +162,7 @@ def multi_view_interpolate_predictions(
     # Iterate over each pair of depth images, trying to interpolate
     # from view i into view j
     n_images = len(images)
-    for i, j in itertools.product(range(n_images), range(n_images)):
+    for i, j in tqdm(itertools.product(range(n_images), range(n_images))):
 
         # Extract view information: view_i is a tuple
         view_i, view_j = get_view_local(i), get_view_local(j)
