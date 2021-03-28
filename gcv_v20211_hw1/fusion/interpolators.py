@@ -169,7 +169,7 @@ def multi_view_interpolate_predictions(
     # from view i into view j
     n_images = len(images)
     for i, j in itertools.product(range(n_images), range(n_images)):
-        print("current images: ", i, j)
+        # print("current images: ", i, j)
         # Extract view information: view_i is a tuple
         view_i, view_j = get_view_local(i), get_view_local(j)
 
