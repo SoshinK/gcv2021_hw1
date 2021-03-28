@@ -22,8 +22,8 @@ import gcv_v20211_hw1.fusion.interpolators as interpolators
 HIGH_RES = 0.02
 MED_RES = 0.05
 LOW_RES = 0.125
-# import warnings
-# warnings.filterwarnings('ignore')
+import warnings
+warnings.filterwarnings('ignore')
 
 def main(options):
     # extract a filename from the input pathname to use further

@@ -10,6 +10,7 @@ from tqdm import tqdm
 from gcv_v20211_hw1.utils.camera_utils.camera_pose import CameraPose
 from gcv_v20211_hw1.utils.camera_utils.imaging import RaycastingImaging
 
+from scipy.interpolate import bisplrep, bisplev
 
 def get_view(
         images: List[np.array],
@@ -117,7 +118,12 @@ def pairwise_interpolate_predictions(
                 #  Use the interpolator to compute an interpolated distance value.
                 interpolator = interpolate.interp2d(point_from_j_nns[:, 0], point_from_j_nns[:, 1], distances_i.reshape((-1))[point_nn_indexes])
                 distances_j_interp[idx] = interpolator(*point_from_j[:2])
-
+                # point_from_j_nns = sorted(point_from_j_nns, key=lambda x: x[1])
+                # tck = bisplrep(point_from_j_nns[:, 0], point_from_j_nns[:, 1], distances_i.reshape((-1))[point_nn_indexes], kx=1, ky=1)#interpolate.interp2d(point_from_j_nns[:, 0], point_from_j_nns[:, 1], distances_i.reshape((-1))[point_nn_indexes])
+                # print(">>", tck, flush=True)
+                # exit()
+                # print(">>", point_from_j_nns[:, 0])
+                # distances_j_interp[idx] = bisplev(point_from_j_nns[:, 0], point_from_j_nns[:, 1], tck)
             except ValueError as e:
                 print('Error while interpolating point {idx}:'
                       '{what}, skipping this point'.format(
@@ -161,7 +167,7 @@ def multi_view_interpolate_predictions(
 
     # Iterate over each pair of depth images, trying to interpolate
     # from view i into view j
-    n_images = 3#len(images)
+    n_images = len(images)
     for i, j in itertools.product(range(n_images), range(n_images)):
         print("current images: ", i, j)
         # Extract view information: view_i is a tuple
